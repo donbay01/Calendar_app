@@ -12,6 +12,12 @@ class _CalenderHomeState extends State<CalenderHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      //backgroundColor: Colors.deepOrange[50],
+      appBar: AppBar(
+        centerTitle: true,
+        title: Text('Your Schedule'),
+        backgroundColor: Colors.black,
+      ),
       body: CalendarWidget(),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add, color: Colors.white,),
@@ -34,8 +40,9 @@ class CalendarWidget extends StatelessWidget {
     return SafeArea(
       child: SfCalendar(
         initialSelectedDate: DateTime.now(),
-          view: CalendarView.month,
+          view: CalendarView.week,
         cellBorderColor: Colors.transparent,
+        //backgroundColor: Colors.deepOrange[50],
       ),
     );
   }
