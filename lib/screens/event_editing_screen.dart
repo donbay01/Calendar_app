@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:personal_calender/model/event.dart';
+import 'package:personal_calender/provider/event_provider.dart';
 import 'package:personal_calender/utils.dart';
+import 'package:provider/provider.dart';
 
 class EventEditingPage extends StatefulWidget {
   final Event? event;
@@ -24,7 +26,7 @@ class _EventEditingPageState extends State<EventEditingPage> {
 
     if (widget.event == null) {
       fromDate = DateTime.now();
-      toDate = DateTime.now().add(Duration(hours: 12));
+      toDate = DateTime.now().add(Duration(hours: 24));
     }
   }
 
@@ -61,19 +63,17 @@ class _EventEditingPageState extends State<EventEditingPage> {
                       Expanded(
                         flex: 2,
                         child: buildDropdownField(
-                          text: Utils.toDate(fromDate),
-                          onClicked: () {
-                            pickFromDateTime(pickDate: true);
-                          }
-                        ),
+                            text: Utils.toDate(fromDate),
+                            onClicked: () {
+                              pickFromDateTime(pickDate: true);
+                            }),
                       ),
                       Expanded(
                         child: buildDropdownField(
-                          text: Utils.toTime(fromDate),
-                          onClicked: (){
-                            pickFromDateTime(pickDate: false);
-                          }
-                        ),
+                            text: Utils.toTime(fromDate),
+                            onClicked: () {
+                              pickFromDateTime(pickDate: false);
+                            }),
                       ),
                     ],
                   ),
@@ -86,13 +86,17 @@ class _EventEditingPageState extends State<EventEditingPage> {
                         flex: 2,
                         child: buildDropdownField(
                           text: Utils.toDate(toDate),
-                          onClicked: () {},
+                          onClicked: () {
+                            pickToDateTime(pickDate: true);
+                          },
                         ),
                       ),
                       Expanded(
                         child: buildDropdownField(
                           text: Utils.toTime(toDate),
-                          onClicked: () {},
+                          onClicked: () {
+                            pickToDateTime(pickDate: false);
+                          },
                         ),
                       ),
                     ],
@@ -111,26 +115,49 @@ class _EventEditingPageState extends State<EventEditingPage> {
       controller: eventName,
       validator: (title) =>
           title != null && title.isEmpty ? 'Title can not be empty' : null,
-      onFieldSubmitted: (_) {},
+      onFieldSubmitted: (_) => saveForm(),
       decoration: InputDecoration(
-        labelText: 'Tittle',labelStyle: TextStyle(color: Colors.deepOrange),
-        hintText: 'Name this event', hintStyle: TextStyle(fontSize: 20),
-        // enabledBorder: OutlineInputBorder(
-        //   borderRadius: BorderRadius.circular(10),
-        //   borderSide: BorderSide(
-        //       color: Colors.deepOrange, width: 1.0),
-        // ),
+        labelText: 'Title',
+        labelStyle: TextStyle(color: Colors.deepOrange),
+        hintText: 'Name this event',
+        hintStyle: TextStyle(fontSize: 20),
         focusedBorder: OutlineInputBorder(
           //borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(
-              color: Colors.deepOrange, width: 1.0),
+          borderSide: BorderSide(color: Colors.deepOrange, width: 1.0),
         ),
       ),
     );
   }
 
-   Future pickFromDateTime ({required bool pickDate}) async {
-    final date = await pickDateTime(fromDate, pickDate: pickDate );
+  Future pickFromDateTime({required bool pickDate}) async {
+    final date = await pickDateTime(
+      fromDate,
+      pickDate: pickDate,
+    );
+    if (date == null) return;
+    if (date.isAfter(toDate)) {
+      toDate =
+          DateTime(date.year, date.month, date.day, toDate.hour, toDate.minute);
+    }
+
+    setState(() {
+      fromDate = date;
+    });
+  }
+
+  Future pickToDateTime({required bool pickDate}) async {
+    final date = await pickDateTime(toDate,
+        pickDate: pickDate, firstDate: pickDate ? fromDate : null);
+    if (date == null) return;
+
+    if (date.isAfter(toDate)) {
+      toDate =
+          DateTime(date.year, date.month, date.day, toDate.hour, toDate.minute);
+    }
+
+    setState(() {
+      toDate = date;
+    });
   }
 
   Future<DateTime?> pickDateTime(
@@ -143,13 +170,25 @@ class _EventEditingPageState extends State<EventEditingPage> {
         context: context,
         initialDate: initialDate,
         firstDate: firstDate ?? DateTime(2015, 8),
-        lastDate: DateTime(2101),
+        lastDate: DateTime(2100),
       );
 
       if (date == null) return null;
 
-      final time = Duration(hours: initialDate.hour, minutes: initialDate.minute);
+      final time =
+          Duration(hours: initialDate.hour, minutes: initialDate.minute);
 
+      return date.add(time);
+    } else {
+      final timeOfDay = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(initialDate),
+      );
+
+      if (timeOfDay == null) return null;
+      final date =
+          DateTime(initialDate.year, initialDate.month, initialDate.day);
+      final time = Duration(hours: timeOfDay.hour, minutes: timeOfDay.minute);
       return date.add(time);
     }
   }
@@ -159,7 +198,9 @@ class _EventEditingPageState extends State<EventEditingPage> {
           style: ElevatedButton.styleFrom(
               primary: Colors.transparent, shadowColor: Colors.transparent),
           icon: Icon(Icons.done),
-          onPressed: () {},
+          onPressed: () {
+            saveForm();
+          },
           label: Text('SAVE'),
         )
       ];
@@ -182,4 +223,22 @@ class _EventEditingPageState extends State<EventEditingPage> {
           child,
         ],
       );
+
+  Future saveForm() async {
+    final isValid = _formKey.currentState!.validate();
+
+    if (isValid) {
+      final event = Event(
+        title: eventName.text,
+        description: 'Description',
+        from: fromDate,
+        to: toDate,
+        isAllDay: false,
+      );
+
+      final provider = Provider.of<EventProvider>(context, listen: false);
+      provider.addEvent(event);
+      Navigator.of(context).pop();
+    }
+  }
 }
